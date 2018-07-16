@@ -273,6 +273,7 @@ class COUP {
 			otherPlayers: this.GetPlayerObjects( this.WhoIsLeft(), player ),
 			discardedCards: this.DISCARDPILE,
 			action,
+			card,
 			byWhom: player,
 			toWhom: target,
 		}) ) {
@@ -708,7 +709,7 @@ if( process.argv.includes('loop') ) {
 		console.info('\n🎉   WINNERS  🎉\n');
 		DisplayScore( winners, false );
 		let round = 1;
-		const rounds = 1000000;
+		const rounds = 10000;
 
 		for( const _ of Array( rounds ) ) {
 			DisplayScore( winners, true );
