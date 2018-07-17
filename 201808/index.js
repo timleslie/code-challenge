@@ -19,6 +19,7 @@ class COUP {
 		this.PLAYER = {};
 		this.DECK = DECK.slice( 0 );
 		this.TURN = 0;
+		this.ROUNDS = 0;
 		this.TIMEOUT = 100;
 	}
 
@@ -71,6 +72,8 @@ class COUP {
 
 
 	MakePlayer( player ) {
+		player = this.ShufflePlayer( player );
+
 		player.forEach( player => {
 			this.PLAYER[ player ] = {
 				card1: void(0),
@@ -83,6 +86,15 @@ class COUP {
 
 	ShuffleCards() {
 		this.DECK = this.DECK
+			.filter( item => item !== undefined )
+			.map( item => [ Math.random(), item ] )
+			.sort( ( a, b ) => a[ 0 ] - b[ 0 ] )
+			.map( item => item[ 1 ] );
+	}
+
+
+	ShufflePlayer( player ) {
+		return player
 			.filter( item => item !== undefined )
 			.map( item => [ Math.random(), item ] )
 			.sort( ( a, b ) => a[ 0 ] - b[ 0 ] )
@@ -119,6 +131,36 @@ class COUP {
 		this.ShuffleCards();
 
 		return this.GetCardFromDeck();
+	}
+
+
+	SwapCards({ newCards, player }) {
+		let oldCards = [];
+		if( this.PLAYER[ player ].card1 ) oldCards.push( this.PLAYER[ player ].card1 );
+		if( this.PLAYER[ player ].card2 ) oldCards.push( this.PLAYER[ player ].card2 );
+
+		let allCards = oldCards.slice( 0 );
+		if( newCards[ 0 ] ) allCards.push( newCards[ 0 ] );
+		if( newCards[ 1 ] ) allCards.push( newCards[ 1 ] );
+
+		newCards = newCards.slice( 0, oldCards.length );
+
+		this.PLAYER[ player ].card1 = newCards[ 0 ];
+		this.PLAYER[ player ].card2 = newCards[ 1 ];
+
+		allCards
+			.filter( card => {
+				if( card && card === newCards[ 0 ] ) {
+					newCards[ 0 ] = void(0);
+					return false;
+				}
+				if( card && card === newCards[ 1 ] ) {
+					newCards[ 1 ] = void(0);
+					return false;
+				}
+				return true;
+			})
+			.map( card => this.DECK.push( card ) );
 	}
 
 
@@ -276,6 +318,7 @@ class COUP {
 			card,
 			byWhom: player,
 			toWhom: target,
+			card,
 		}) ) {
 			let lying = false;
 			if( this.PLAYER[ target ].card1 !== card && this.PLAYER[ target ].card2 !== card ) {
@@ -524,13 +567,8 @@ class COUP {
 				break;
 
 			case 'swapping':
-				let oldCards = 0;
-				if( this.PLAYER[ player ].card1 ) oldCards ++;
-				if( this.PLAYER[ player ].card2 ) oldCards ++;
-
 				const card1 = this.GetCardFromDeck();
 				const card2 = this.GetCardFromDeck();
-				const allCards = new Set([ card1, card2, this.PLAYER[ player ].card1, this.PLAYER[ player ].card2 ]);
 
 				const newCards = this.BOTS[ player ].OnSwappingCards({
 					history: this.HISTORY,
@@ -539,14 +577,9 @@ class COUP {
 					otherPlayers: this.GetPlayerObjects( this.WhoIsLeft(), player ),
 					discardedCards: this.DISCARDPILE,
 					newCards: [ card1, card2 ],
-				}).slice( 0, oldCards );
+				});
 
-				this.PLAYER[ player ].card1 = newCards[ 0 ];
-				this.PLAYER[ player ].card2 = newCards[ 1 ];
-
-				Array
-					.from( new Set([ ...allCards ].filter( card => !new Set( newCards ).has( card ) ) ) )
-					.forEach( card => card ? this.DECK.push( card ) : null );
+				this.SwapCards({ newCards, player });
 				break;
 		}
 	}
@@ -667,11 +700,16 @@ class COUP {
 
 		if( !skipAction ) this.RunChallenges({ player, action, target: against });
 
-		if( this.WhoIsLeft().length > 1 ) {
+		if( this.WhoIsLeft().length > 1 && this.ROUNDS < 1000 ) {
+			this.ROUNDS ++;
 			if( this.TIMEOUT > 0 ) {
 				await this.Wait( this.TIMEOUT );
 			}
 			return this.Turn();
+		}
+		else if( this.ROUNDS >= 1000 ) {
+			console.error('The game was stopped because of an infinite loop');
+			return 'stale-mate';
 		}
 		else {
 			const winner = this.WhoIsLeft()[ 0 ];
@@ -699,12 +737,12 @@ const DisplayScore = ( winners, clear = false ) => {
 
 if( process.argv.includes('loop') ) {
 	let game;
-	const winners = {};
+	const winners = { 'stale-mate': 0 };
 	ALLPLAYER.forEach( player => winners[ player ] = 0 );
 
 	(async () => {
 		let log = '';
-		console.log = text => { /*log += `${ Style.strip( text ) }\n`*/ };
+		console.log = text => { log += `${ text }\n` };
 		console.info(`\nGame round started`);
 		console.info('\n🎉   WINNERS  🎉\n');
 		DisplayScore( winners, false );
@@ -716,12 +754,17 @@ if( process.argv.includes('loop') ) {
 			game = new COUP();
 			game.TIMEOUT = 0;
 			const winner = await game.Play();
+			if( !winner ) {
+				console.error( log );
+				console.error( JSON.stringify( game.HISTORY, null, 2 ) );
+				break;
+			}
 			if( !winners[ winner ] ) winners[ winner ] = 0;
 			winners[ winner ] ++;
 			round ++;
+			log = '';
 		}
 
-		Fs.writeFileSync( 'round.log', log, { encoding: 'utf8' } );
 		console.info();
 	})();
 }
