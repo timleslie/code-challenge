@@ -317,7 +317,6 @@ class COUP {
 			otherPlayers: this.GetPlayerObjects( this.WhoIsLeft(), player ),
 			discardedCards: this.DISCARDPILE,
 			action,
-			card,
 			byWhom: player,
 			toWhom: target,
 			card,
@@ -745,29 +744,26 @@ if( process.argv.includes('loop') ) {
 	const winners = { 'stale-mate': 0 };
 	ALLPLAYER.forEach( player => winners[ player ] = 0 );
 
-	(async () => {
-		let log = '';
-		console.log = text => { log += `${ text }\n` };
-		console.info(`\nGame round started`);
-		console.info('\n🎉   WINNERS  🎉\n');
-		DisplayScore( winners, false );
-		let round = 1;
-		const rounds = 10000;
+	let log = '';
+	console.log = text => { log += `${ text }\n` };
+	console.info(`\nGame round started`);
+	console.info('\n🎉   WINNERS  🎉\n');
 
-		for( const _ of Array( rounds ) ) {
-			DisplayScore( winners, true );
-			game = new COUP();
-			game.TIMEOUT = 0;
-			const winner = await game.Play();
-			if( !winner ) {
-				console.error( log );
-				console.error( JSON.stringify( game.HISTORY, null, 2 ) );
-				break;
-			}
-			if( !winners[ winner ] ) winners[ winner ] = 0;
-			winners[ winner ] ++;
-			round ++;
-			log = '';
+	let round = 1;
+	const rounds = GetRounds();
+
+	DisplayScore( winners, false, round );
+
+	for( const _ of Array( rounds ) ) {
+		DisplayScore( winners, true, round );
+
+		const game = new COUP();
+		const winner = game.Play();
+
+		if( !winner ) {
+			console.error( log );
+			console.error( JSON.stringify( game.HISTORY, null, 2 ) );
+			break;
 		}
 		if( !winners[ winner ] ) winners[ winner ] = 0;
 		winners[ winner ] ++;
