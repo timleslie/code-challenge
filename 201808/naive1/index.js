@@ -27,7 +27,7 @@ class BOT {
 		} else if (discardedCards.filter(c => c === 'duke').length === 3) {
 			action = 'foreign-aid';
 		} else {
-			action = 'taking-1';
+			action = 'foreign-aid';
 		}
 
 		return {
