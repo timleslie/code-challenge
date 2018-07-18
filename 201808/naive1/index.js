@@ -38,28 +38,15 @@ class BOT {
 
 	OnChallengeActionRound({ history, myCards, myCoins, otherPlayers, discardedCards, action, byWhom, toWhom}) {
 		const cards = [...myCards, ...discardedCards];
-		switch (action) {
-			case 'taking-3':
-				if (cards.filter(c => c === 'duke').length === 3) {
-					return true
-				}
-				break;
-			case 'assassination':
-				if (cards.filter(c => c === 'assassin').length === 3) {
-					return true
-				}
-				break;
-			case 'stealing':
-				if (cards.filter(c => c === 'captain').length === 3) {
-					return true
-				}
-				break;
-			case 'swapping':
-				if (cards.filter(c => c === 'captain').length === 3) {
-					return true
-				}
-			break;
-	}
+		const card = {
+			'taking-3': 'duke',
+			'assassination': 'assassin',
+			'stealing': 'captain',
+			'swapping': 'captain',
+		}[action];
+		if (card && cards.filter(c => c === card).length === 3) {
+			return true;
+		}
 		return false;
 	}
 
