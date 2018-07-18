@@ -2,12 +2,18 @@
 
 const { Style } = require('./helper.js');
 const Fs = require('fs');
-const {
-	ALLPLAYER,
+let {
+	ALLBOTS,
 	CARDS,
 	DECK,
 	ACTIONS,
 } = require('./constants.js');
+
+// making clones so the bots don't break them
+ALLBOTS = [...ALLBOTS];
+CARDS = [...CARDS];
+DECK = [...DECK];
+ACTIONS = [...ACTIONS];
 
 
 class COUP {
@@ -20,9 +26,10 @@ class COUP {
 		this.DECK = DECK.slice( 0 );
 		this.TURN = 0;
 		this.ROUNDS = 0;
+		this.ALLPLAYER = [];
 	}
 
-	Play() {
+	Play( allPlayer ) {
 		console.log(
 			`\n\n` +
 			`   ██████${Style.yellow('╗')}  ██████${Style.yellow('╗')}  ██${Style.yellow('╗')}   ██${Style.yellow('╗')} ██████${Style.yellow('╗')}\n` +
@@ -34,8 +41,10 @@ class COUP {
 			`\n`
 		);
 
-		this.GetBots( ALLPLAYER );
-		this.MakePlayers( ALLPLAYER );
+		this.ALLPLAYER = allPlayer;
+
+		this.GetBots();
+		this.MakePlayers();
 		this.HandOutCards();
 		this.ElectStarter();
 
@@ -45,7 +54,7 @@ class COUP {
 
 	GetBots( player ) {
 		try {
-			player.forEach( player => {
+			this.ALLPLAYER.forEach( player => {
 				const bot = require(`./${ player }/index.js`);
 				this.BOTS[ player ] = new bot();
 
@@ -60,7 +69,7 @@ class COUP {
 					const missing = ['OnTurn', 'OnChallengeActionRound', 'OnCounterAction', 'OnCounterActionRound', 'OnSwappingCards', 'OnCardLoss']
 						.filter( method => !Object.keys( this.BOTS[ player ] ).includes( method ) );
 
-					throw( Style.red(`🚨  The bot ${ Style.yellow( player ) } is missing ${ missing.length > 1 ? 'methods' : 'a method' }: ${ Style.yellow( missing.join(', ') ) }!\n`) );
+					throw(`🚨  ${ Style.red('The bot ') }${ Style.yellow( player ) }${ Style.red(` is missing ${ missing.length > 1 ? 'methods' : 'a method' }: `) }${ Style.yellow( missing.join(', ') ) }!\n`);
 				}
 			});
 		}
@@ -72,7 +81,7 @@ class COUP {
 
 
 	MakePlayers( players ) {
-		players = this.ShufflePlayer( players );
+		players = this.ShufflePlayer( this.ALLPLAYER );
 
 		players.forEach( player => {
 			this.PLAYER[ player ] = {
@@ -229,16 +238,16 @@ class COUP {
 		if( !player ) {
 			return player;
 		}
-		else if( !ALLPLAYER.includes( player ) ) {
+		else if( !this.ALLPLAYER.includes( player ) ) {
 			return `[${ Style.yellow(`${ player }`)} -not found-]`;
 		}
 		else {
-			return `[${ Style.yellow( player ) } ` +
+			return Style.yellow(`[${ player } `) +
 				// `${ this.PLAYER[ player ].card1 ? `${ Style.red( this.PLAYER[ player ].card1.substring( 0, 2 ) ) } ` : '' }` +
 				// `${ this.PLAYER[ player ].card2 ? `${ Style.red( this.PLAYER[ player ].card2.substring( 0, 2 ) ) } ` : '' }` +
 				`${ this.PLAYER[ player ].card1 ? Style.red('♥') : '' }` +
 				`${ this.PLAYER[ player ].card2 ? Style.red('♥') : '' }` +
-				` ${ Style.yellow(`💰 ${ this.PLAYER[ player ].coins }`) }]`;
+				` ${ Style.yellow(`💰 ${ this.PLAYER[ player ].coins }]`) }`;
 		}
 	}
 
@@ -283,11 +292,11 @@ class COUP {
 		let penalty = '';
 
 		const lostCard = this.BOTS[ player ].OnCardLoss({
-			history: this.HISTORY,
+			history: this.HISTORY.slice( 0 ),
 			myCards: this.GetPlayerCards( player ),
 			myCoins: this.PLAYER[ player ].coins,
 			otherPlayers: this.GetPlayerObjects( this.WhoIsLeft(), player ),
-			discardedCards: this.DISCARDPILE,
+			discardedCards: this.DISCARDPILE.slice( 0 ),
 		});
 
 		const _validCard = [ this.PLAYER[ player ].card1, this.PLAYER[ player ].card2 ].includes( lostCard ) && lostCard;
@@ -311,11 +320,11 @@ class COUP {
 		};
 
 		if( this.BOTS[ player ][ challengeTypes[ type ] ]({
-			history: this.HISTORY,
+			history: this.HISTORY.slice( 0 ),
 			myCards: this.GetPlayerCards( player ),
 			myCoins: this.PLAYER[ player ].coins,
 			otherPlayers: this.GetPlayerObjects( this.WhoIsLeft(), player ),
-			discardedCards: this.DISCARDPILE,
+			discardedCards: this.DISCARDPILE.slice( 0 ),
 			action,
 			byWhom: player,
 			toWhom: target,
@@ -398,11 +407,11 @@ class COUP {
 		let counterAction;
 		if( player ) {
 			counterAction = this.BOTS[ player ].OnCounterAction({
-				history: this.HISTORY,
+				history: this.HISTORY.slice( 0 ),
 				myCards: this.GetPlayerCards( player ),
 				myCoins: this.PLAYER[ player ].coins,
 				otherPlayers: this.GetPlayerObjects( this.WhoIsLeft(), player ),
-				discardedCards: this.DISCARDPILE,
+				discardedCards: this.DISCARDPILE.slice( 0 ),
 				action,
 				byWhom: target,
 			});
@@ -413,11 +422,11 @@ class COUP {
 				.filter( user => user !== target && ( this.PLAYER[ user ].card1 || this.PLAYER[ user ].card2 ) )
 				.some( user => {
 					const _hasBeenChallenged = this.BOTS[ user ].OnCounterAction({
-						history: this.HISTORY,
+						history: this.HISTORY.slice( 0 ),
 						myCards: this.GetPlayerCards( user ),
 						myCoins: this.PLAYER[ user ].coins,
 						otherPlayers: this.GetPlayerObjects( this.WhoIsLeft(), user ),
-						discardedCards: this.DISCARDPILE,
+						discardedCards: this.DISCARDPILE.slice( 0 ),
 						action,
 						byWhom: target,
 					});
@@ -514,11 +523,11 @@ class COUP {
 			case 'couping':
 				this.PLAYER[ player ].coins -= 7;
 				disgarded = this.BOTS[ target ].OnCardLoss({
-					history: this.HISTORY,
+					history: this.HISTORY.slice( 0 ),
 					myCards: this.GetPlayerCards( target ),
 					myCoins: this.PLAYER[ target ].coins,
 					otherPlayers: this.GetPlayerObjects( this.WhoIsLeft(), target ),
-					discardedCards: this.DISCARDPILE,
+					discardedCards: this.DISCARDPILE.slice( 0 ),
 				});
 
 				if( this.PLAYER[ target ].card1 === disgarded && disgarded ) {
@@ -538,11 +547,11 @@ class COUP {
 
 			case 'assassination':
 				disgarded = this.BOTS[ target ].OnCardLoss({
-					history: this.HISTORY,
+					history: this.HISTORY.slice( 0 ),
 					myCards: this.GetPlayerCards( target ),
 					myCoins: this.PLAYER[ target ].coins,
 					otherPlayers: this.GetPlayerObjects( this.WhoIsLeft(), target ),
-					discardedCards: this.DISCARDPILE,
+					discardedCards: this.DISCARDPILE.slice( 0 ),
 				});
 
 				if( this.PLAYER[ target ].card1 === disgarded && disgarded ) {
@@ -571,12 +580,12 @@ class COUP {
 				const newCards = [ this.GetCardFromDeck(), this.GetCardFromDeck() ];
 
 				const chosenCards = this.BOTS[ player ].OnSwappingCards({
-					history: this.HISTORY,
+					history: this.HISTORY.slice( 0 ),
 					myCards: this.GetPlayerCards( player ),
 					myCoins: this.PLAYER[ player ].coins,
 					otherPlayers: this.GetPlayerObjects( this.WhoIsLeft(), player ),
-					discardedCards: this.DISCARDPILE,
-					newCards,
+					discardedCards: this.DISCARDPILE.slice( 0 ),
+					newCards: newCards.slice( 0 ),
 				});
 
 				this.SwapCards({ chosenCards, player, newCards });
@@ -589,11 +598,11 @@ class COUP {
 		const player = Object.keys( this.PLAYER )[ this.GetWhosNext() ];
 
 		const { action, against } = this.BOTS[ player ].OnTurn({
-			history: this.HISTORY,
+			history: this.HISTORY.slice( 0 ),
 			myCards: this.GetPlayerCards( player ),
 			myCoins: this.PLAYER[ player ].coins,
 			otherPlayers: this.GetPlayerObjects( this.WhoIsLeft(), player ),
-			discardedCards: this.DISCARDPILE,
+			discardedCards: this.DISCARDPILE.slice( 0 ),
 		});
 
 		const playerAvatar = this.GetAvatar( player );
@@ -705,80 +714,141 @@ class COUP {
 			return this.Turn();
 		}
 		else if( this.ROUNDS >= 1000 ) {
-			console.error('The game was stopped because of an infinite loop');
-			return 'stale-mate';
+			console.log('The game was stopped because of an infinite loop');
+			return this.WhoIsLeft();
 		}
 		else {
 			const winner = this.WhoIsLeft()[ 0 ];
 			console.log(`\nThe winner is ${ this.GetAvatar( winner ) }\n`);
-			return winner;
+			return [ winner ];
 		}
 	}
+}
+
+
+class LOOP {
+	constructor() {
+		this.WINNERS = {};
+		this.SCORE = {};
+		this.LOG = '';
+		this.ERRORLOG = '';
+		this.ROUND = 0;
+		this.ROUNDS = this.GetRounds();
+
+		ALLBOTS.forEach( player => {
+			this.WINNERS[ player ] = 0;
+			this.SCORE[ player ] = 0;
+		});
+	}
+
+	GetScore( winners, allPlayer ) {
+		const winnerCount = winners.length;
+		const loserCount = allPlayer.length - winnerCount;
+		const loserScore = -1 / ( allPlayer.length - 1 );
+		const winnerScore = ( loserScore * loserCount ) / winnerCount * -1;
+
+		allPlayer.forEach( player => {
+			if( winners.includes( player ) ) {
+				this.SCORE[ player ] += winnerScore;
+			}
+			else {
+				this.SCORE[ player ] += loserScore;
+			}
+		});
+
+		winners.forEach( player => {
+			this.WINNERS[ player ] ++;
+		});
+	}
+
+	DisplayScore( clear = false ) {
+		if( clear ) process.stdout.write(`\u001b[${ Object.keys( this.SCORE ).length + 1 }A\u001b[2K`);
+
+		const done = String( Math.floor( this.ROUND/this.ROUNDS * 100 ) + 1 );
+		process.stdout.write(`\u001b[2K${ done.padEnd(3) }% done\n`)
+		Object
+			.keys( this.SCORE )
+			.sort( ( a, b ) => this.SCORE[b] - this.SCORE[a] )
+			.forEach( player => {
+				const percentage = ( this.ROUND > 0 ) ? `${ ( ( this.WINNERS[ player ] * 100 ) / this.ROUND ).toFixed( 3 ) }%` : '-';
+				process.stdout.write(
+					`\u001b[2K${ Style.gray( percentage.padEnd(7) ) } ` +
+					`${ Style.red( String( this.SCORE[ player ].toFixed( 2 ) ).padEnd( Math.round( Math.log10( this.ROUNDS ) + 6 ) ) ) } ` +
+					`${ Style.yellow( player ) } got ${ Style.red( this.WINNERS[ player ] ) } wins\n`
+				);
+			});
+	}
+
+	GetRounds() {
+		const rIdx = process.argv.indexOf('-r');
+		if( rIdx > 0 && process.argv.length > rIdx && Number.parseInt( process.argv[rIdx + 1] ) > 0 ) {
+			return Number.parseInt( process.argv[rIdx + 1] );
+		}
+		return 1000;
+	}
+
+	Play() {
+		this.DisplayScore( true );
+
+		let game = new COUP();
+		const winners = game.Play( GetPlayer( ALLBOTS ) );
+
+		if( !winners || this.ERRORLOG !== '' ) {
+			console.info( this.LOG );
+			console.info( JSON.stringify( game.HISTORY, null, 2 ) );
+			this.ROUND = this.ROUNDS;
+		}
+
+		this.GetScore( winners, game.ALLPLAYER );
+
+		game = null;
+
+		this.ROUND ++;
+		this.LOG = '';
+
+		if( this.ROUND < this.ROUNDS ) {
+			// We run on next tick so the GC can get to work.
+			// Otherwise it will work up a large memory footprint
+			// when running over 100,000 games
+			// (cause loops won't let the GC run efficiently)
+			process.nextTick( () => this.Play() );
+		}
+		else {
+			console.info();
+		}
+	}
+
+	Run() {
+		console.log = text => { this.LOG += `${ text }\n` };
+		console.error = text => { this.ERRORLOG += `${ text }\n` };
+		console.info(`\nGame round started`);
+		console.info('\n🎉   WINNERS  🎉\n');
+
+		this.DisplayScore( false );
+
+		this.Play();
+	}
+};
+
+const GetPlayer = ( allPlayer ) => {
+	return allPlayer
+		.filter( item => item !== undefined )
+		.map( item => [ Math.random(), item ] )
+		.sort( ( a, b ) => a[ 0 ] - b[ 0 ] )
+		.map( item => item[ 1 ] )
+		.slice( 0, 6 );
 }
 
 
 if( process.argv.includes('play') ) {
-	new COUP().Play();
-}
-
-const DisplayScore = ( winners, clear = false, round ) => {
-	if( clear ) process.stdout.write(`\u001b[${ Object.keys( winners ).length }A\u001b[2K`);
-	Object
-		.keys( winners )
-		.sort( ( a, b ) => winners[a] < winners[b] )
-		.forEach( player => {
-			const percentage = ( round > 0 ) ? ( ( winners[ player ] * 100 ) / round ).toFixed( 3 ) : '-';
-			process.stdout.write(`\u001b[2K${ Style.gray(`(${ percentage.padEnd(7) }%)`) } ${ Style.yellow( player ) } got ${ Style.red( winners[ player ] ) } wins\n`);
-		});
-}
-
-const GetRounds = () => {
-	const rIdx = process.argv.indexOf('-r');
-	if( rIdx > 0 && process.argv.length > rIdx && Number.parseInt( process.argv[rIdx + 1] ) > 0 ) {
-		return Number.parseInt( process.argv[rIdx + 1] );
-	}
-	return 1000;
+	new COUP().Play( GetPlayer( ALLBOTS ) );
 }
 
 if( process.argv.includes('loop') ) {
-	const winners = { 'stale-mate': 0 };
-	ALLPLAYER.forEach( player => winners[ player ] = 0 );
-
-	let log = '';
-	console.log = text => { log += `${ text }\n` };
-	console.info(`\nGame round started`);
-	console.info('\n🎉   WINNERS  🎉\n');
-
-	let round = 1;
-	const rounds = GetRounds();
-
-	DisplayScore( winners, false, round );
-
-	for( const _ of Array( rounds ) ) {
-		DisplayScore( winners, true, round );
-
-		const game = new COUP();
-		const winner = game.Play();
-
-		if( !winner ) {
-			console.error( log );
-			console.error( JSON.stringify( game.HISTORY, null, 2 ) );
-			break;
-		}
-		if( !winners[ winner ] ) winners[ winner ] = 0;
-		winners[ winner ] ++;
-		round ++;
-		log = '';
-	}
-
-	console.info();
+	new LOOP().Run();
 }
 
 
 module.exports = exports = {
-	ALLPLAYER,
-	CARDS,
-	DECK,
-	ACTIONS,
 	COUP,
 };
