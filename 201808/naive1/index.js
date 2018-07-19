@@ -7,12 +7,15 @@ const {
 	ACTIONS,
 } = require('../constants.js');
 
+const count = (card, visible) => visible.filter(c => c === card).length;
+
 class BOT {
 	OnTurn({ history, myCards, myCoins, otherPlayers, discardedCards }) {
-		let action = ACTIONS[ Math.floor( Math.random() * ACTIONS.length ) ];
 		const against = otherPlayers[ Math.floor( Math.random() * otherPlayers.length ) ].name;
 		const scores = otherPlayers.map(p => [p.coins * p.cards, p])
 		const visibleCards = [...myCards, ...discardedCards];
+
+		let action;
 		if (myCards.includes('assassin') && myCoins >= 3) {
 			action = 'assassination';
 		} else if( myCoins >= 7 ) {
@@ -21,16 +24,14 @@ class BOT {
 			action = 'taking-3';
 		} else if (myCards.includes('ambassador')) {
 			action = 'swapping';
-		} else if (visibleCards.filter(c => c === 'captain').length === 3 &&
-			visibleCards.filter(c => c === 'ambassador').length === 3 &&
+		} else if (count('captain', visibleCards) === 3 && count('ambassador', visibleCards) === 3 &&
 			myCards.includes('captain')) {
 			action = 'stealing';
-		} else if (discardedCards.filter(c => c === 'duke').length === 3) {
+		} else if (count('duke', discardedCards) === 3) {
 			action = 'foreign-aid';
 		} else {
 			action = 'taking-1';
 		}
-
 
 		return {
 			action,

@@ -7,13 +7,43 @@ const {
 	ACTIONS,
 } = require('../constants.js');
 
+const count = (card, visible) => visible.filter(c => c === card).length;
+
+const reformatHistory = (history) => {
+	const newHistory = [];
+	let currentTurn = [];
+	history.forEach(record => {
+		if (record.type === 'action' && currentTurn.length > 0) {
+			newHistory.push(currentTurn);
+			currentTurn = []
+		}
+		currentTurn.push(record);
+	});
+	return newHistory
+};
+
+const ME = 'clever1'
+
+const hasPlayerBlocked = (history, action, from) => {
+	return history.some(turn =>
+		 (turn.find(record => record.type === 'action' && record.action === action) &&
+ 			turn.find(record => record.type === 'counter-action' && record.from !== ME && (from === undefined || record.from === from)))
+	);
+}
+
+const safeish = (history, visibleCards, action, blockers, against) => {
+	return blockers.every(c => count(c, visibleCards) === 3) || !hasPlayerBlocked(history, action, against);
+}
+
 class BOT {
 	OnTurn({ history, myCards, myCoins, otherPlayers, discardedCards }) {
-		let action = ACTIONS[ Math.floor( Math.random() * ACTIONS.length ) ];
 		const against = otherPlayers[ Math.floor( Math.random() * otherPlayers.length ) ].name;
 		const scores = otherPlayers.map(p => [p.coins * p.cards, p])
 		const visibleCards = [...myCards, ...discardedCards];
-		if (myCards.includes('assassin') && myCoins >= 3) {
+		history = reformatHistory(history);
+
+		let action;
+		if (myCards.includes('assassin') && myCoins >= 3 && safeish(history, visibleCards, 'assassination', ['contessa'], against)) {
 			action = 'assassination';
 		} else if( myCoins >= 7 ) {
 			action = 'couping';
@@ -21,14 +51,12 @@ class BOT {
 			action = 'taking-3';
 		} else if (myCards.includes('ambassador')) {
 			action = 'swapping';
-		} else if (visibleCards.filter(c => c === 'captain').length === 3 &&
-			visibleCards.filter(c => c === 'ambassador').length === 3 &&
-			myCards.includes('captain')) {
+		} else if (myCards.includes('captain') && safeish(history, visibleCards, 'stealing', ['captain', 'ambassador'], against)) {
 			action = 'stealing';
-		} else if (discardedCards.filter(c => c === 'duke').length === 3) {
+		} else if (safeish(history, visibleCards, 'foreign-aid', ['duke'])) {
 			action = 'foreign-aid';
 		} else {
-			action = 'foreign-aid';
+			action = 'taking-1';
 		}
 
 		return {
@@ -44,12 +72,9 @@ class BOT {
 			'taking-3': 'duke',
 			'assassination': 'assassin',
 			'stealing': 'captain',
-			'swapping': 'captain',
+			'swapping': 'ambassador',
 		}[action];
-		if (card && visibleCards.filter(c => c === card).length === 3) {
-			return true;
-		}
-		return false;
+		return card && count(card, visibleCards) === 3;
 	}
 
 	OnCounterAction({ history, myCards, myCoins, otherPlayers, discardedCards, action, byWhom }) {
@@ -66,10 +91,7 @@ class BOT {
 	OnCounterActionRound({ history, myCards, myCoins, otherPlayers, discardedCards, action, byWhom, toWhom, card }) {
 		// If they're obviously bullshitting, call them
 		const visibleCards = [...myCards, ...discardedCards];
-		if (visibleCards.filter(c => c === card).length === 3) {
-			return true
-		}
-		return false;
+		return count(card, visibleCards) === 3;
 	}
 
 	OnSwappingCards({ history, myCards, myCoins, otherPlayers, discardedCards, newCards }) {
