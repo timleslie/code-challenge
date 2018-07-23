@@ -1,6 +1,8 @@
 'use strict';
 
-const count = (card, visible) => visible.filter(c => c === card).length;
+const ME = 'clever1';
+
+const count = (card, cards) => cards.filter(c => c === card).length;
 
 const reformatHistory = (history) => {
 	const newHistory = [];
@@ -14,8 +16,6 @@ const reformatHistory = (history) => {
 	});
 	return newHistory
 };
-
-const ME = 'clever1'
 
 const hasPlayerBlocked = (history, action, from) => {
 	return history.some(turn =>
@@ -44,31 +44,6 @@ const findTarget = (otherPlayers) => {
 	return otherPlayers.map(p => [p.coins * p.cards, p]).sort((a, b) => a[0] - b[0]).slice(-1)[0][1];
 }
 
-const canUse = (card, visibleCards, myCoins, history, target) => {
-	if (card === 'contessa') {
-		return count('assassin', visibleCards) !== 3;
-	}
-	const requiredCoins = card === 'assassin' ? 3 : 0;
-	const requiredTargetCoins = card === 'captain' ? 2 : 0;
-	const action = {
-		'assassin': 'assassination',
-		'duke': 'taking-3',
-		'ambassador': 'swapping',
-		'captain': 'stealing',
-	}[card];
-
-	const blockers = {
-		'assassin': ['contessa'],
-		'duke': [''],
-		'ambassador': [''],
-		'captain': ['captain', 'ambassador']
-	}[card];
-
-	const targetName = ['assassin', 'captain'].includes(card) ? target.name : undefined;
-	const targetCoins = card === 'captain' ? target.coins : 0;
-	return myCoins >= requiredCoins && safeish(history, visibleCards, action, blockers, targetName) && targetCoins >= requiredTargetCoins;
-}
-
 const usefulAsBlocker = (card, visibleCards) => {
 	if (card === 'duke') { return true; }
 	else if (card === 'assassin') { return false; }
@@ -77,10 +52,10 @@ const usefulAsBlocker = (card, visibleCards) => {
 }
 
 const usefulAsAttacker = (card, visibleCards, history, otherPlayers) => {
-	if (card === 'duke') { return true; }
-	else if (['ambassador', 'contessa'].includes(card)) { return false; }
+	if (['duke', 'ambassador'].includes(card)) { return true; }
+	else if (card === 'contessa') { return false; }
 	else if (card === 'captain') {
-		return count('ambassador', visibleCards) === 3 && count('captain', visibleCards) === 3 ||
+		return ['ambassador', 'captain'].every(c => count(c, visibleCards) === 3) ||
 		!(otherPlayers.every(p => hasPlayerBlocked(history, 'stealing', p.name)))  // Has everyone blocked?
 	}
 	else if (card === 'assassin') {
@@ -148,6 +123,7 @@ class BOT {
 	}
 
 	OnSwappingCards({ history, myCards, myCoins, otherPlayers, discardedCards, newCards }) {
+		// Pick the best two non-identical cards
 		const sorted = sortCards([...myCards, ...newCards]);
 		const first = sorted[0];
 		return myCards.length === 1 ? [first] : [first, sorted.find(c => c !== first) || first];
@@ -158,6 +134,7 @@ class BOT {
 		if (myCards.length === 1 || myCards[0] === myCards[1]) {
 			return myCards[0];
 		}
+		// Choose the card with the lowest current value
 		const visibleCards = [...myCards, ...discardedCards];
 		history = reformatHistory(history);
 		const ratings = myCards.map(c => [usefulAsBlocker(c, visibleCards), usefulAsAttacker(c, visibleCards, history, otherPlayers)].filter(x => x).length);
