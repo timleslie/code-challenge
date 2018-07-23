@@ -113,7 +113,15 @@ class BOT {
 			'stealing': ['captain', 'ambassador'],
 		}[action];
 		const match = cards && cards.find(c => myCards.includes(c));
-		return match || false;
+		if (match) {
+			return match;
+		}
+
+		// If we're gonna be dead, fight it!
+		if (action === 'assassination' && myCards.length === 1) {
+			return 'contessa';
+		}
+		return false;
 	}
 
 	OnCounterActionRound({ history, myCards, myCoins, otherPlayers, discardedCards, action, byWhom, toWhom, card }) {
